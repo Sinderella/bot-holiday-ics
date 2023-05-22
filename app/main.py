@@ -1,9 +1,7 @@
 import sys
 from datetime import datetime
-from pprint import pprint
 
 import requests as requests
-from bs4 import BeautifulSoup
 from icalendar import Calendar, Event
 
 
