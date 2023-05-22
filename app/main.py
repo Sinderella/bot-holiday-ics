@@ -59,14 +59,6 @@ if __name__ == "__main__":
         event.add("uid", generate_uid(date))
         cal.add_component(event)
 
-        # date = datetime.strptime(f"{day_no} {month} {year}", "%d %B %Y").date()
-
-        # event = Event()
-        # event.add("summary", summary)
-        # event.add("dtstart", date)
-        # event.add("dtend", date)
-        # cal.add_component(event)
-
     # write calendar to file
     with open("thai bank holidays.ics", "wb") as f:
         f.write(cal.to_ical())
