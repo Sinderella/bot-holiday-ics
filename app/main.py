@@ -7,35 +7,32 @@ from bs4 import BeautifulSoup
 from icalendar import Calendar, Event
 
 
-# func to fetch calendar data from https://www.bot.or.th/English/FinancialInstitutions/FIholiday/Pages/HolidayCalendar.aspx?y=2023
-def get_calendar(year_no: int):
-    url = (
-        "https://www.bot.or.th/English/FinancialInstitutions/FIholiday/Pages/HolidayCalendar.aspx?y="
-        + str(year_no)
-    )
+# func to fetch calendar data from https://www.bot.or.th/content/bot/en/financial-institutions-holiday/jcr:content/root/container/holidaycalendar.model.2023.json
+def get_calendar(year_no: int) -> dict[datetime, str]:
+    url = f"https://www.bot.or.th/content/bot/en/financial-institutions-holiday/jcr:content/root/container/holidaycalendar.model.{year_no}.json"
+
     page = requests.get(url)
-    soup = BeautifulSoup(page.content, "html.parser")
-    tables = soup.find_all("table")
+    content = page.json()["holidayCalendarLists"]
+
     output = {}
-    for table in tables:
-        output = {**output, **_get_month(table)}
+
+    for item in content:
+        description = item["holidayDescription"].strip()
+        date_no = item["date"].split(" ")[-1].strip()
+        month = item["month"].strip()
+        year = item["year"].strip()
+
+        if year != str(year_no):
+            raise RuntimeError("Year no does not match")
+
+        parsed_date = datetime.strptime(f"{date_no} {month} {year}", "%d %B %Y").date()
+        output[parsed_date] = description
+
     return output
 
 
-# get month from table
-def _get_month(table):
-    month_name = table.parent.parent.find("span", class_="cal_month_text").text
-    output = {month_name: []}
-    rows = table.find_all("tr")
-    for row in rows:
-        cols = row.find_all("td")
-        holiday_day_no = [
-            {ele.text.strip(): ele["title"]} for ele in cols if "title" in ele.attrs
-        ]
-        if not holiday_day_no:
-            continue
-        output[month_name] += holiday_day_no
-    return output
+def generate_uid(date: datetime) -> str:
+    return f"BOT-{date.strftime('%Y%m%d')}"
 
 
 if __name__ == "__main__":
@@ -53,16 +50,22 @@ if __name__ == "__main__":
     cal.add("version", "2.0")
 
     # add holidays to calendar
-    for month, holidays in data.items():
-        for holiday in holidays:
-            for day_no, summary in holiday.items():
-                date = datetime.strptime(f"{day_no} {month} {year}", "%d %B %Y").date()
+    for date, summary in data.items():
+        event = Event()
+        event.add("summary", summary)
+        event.add("dtstart", date)
+        event.add("dtend", date)
+        event.add("dtstamp", datetime.now())
+        event.add("uid", generate_uid(date))
+        cal.add_component(event)
 
-                event = Event()
-                event.add("summary", summary)
-                event.add("dtstart", date)
-                event.add("dtend", date)
-                cal.add_component(event)
+        # date = datetime.strptime(f"{day_no} {month} {year}", "%d %B %Y").date()
+
+        # event = Event()
+        # event.add("summary", summary)
+        # event.add("dtstart", date)
+        # event.add("dtend", date)
+        # cal.add_component(event)
 
     # write calendar to file
     with open("thai bank holidays.ics", "wb") as f:
